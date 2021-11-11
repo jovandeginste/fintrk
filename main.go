@@ -1,6 +1,10 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
+
+	"github.com/mitchellh/go-homedir"
 	"github.com/sirupsen/logrus"
 )
 
@@ -19,9 +23,24 @@ func (a *App) Logger() *logrus.Logger {
 }
 
 func main() {
+	DBFile := ""
+
+	if os.Getenv("FINTRK_DBFILE") != "" {
+		DBFile = os.Getenv("FINTRK_DBFILE")
+	}
+
+	if DBFile == "" {
+		d, err := homedir.Dir()
+		if err != nil {
+			panic(err)
+		}
+
+		DBFile = filepath.Join(d, ".fintrk.db")
+	}
+
 	l := logrus.StandardLogger()
 	a := App{
-		db:       NewDB("fintrk.db", l),
+		db:       NewDB(DBFile, l),
 		logger:   l,
 		currency: &Currency{},
 	}

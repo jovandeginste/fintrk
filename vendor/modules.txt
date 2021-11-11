@@ -23,6 +23,9 @@ github.com/hashicorp/go-retryablehttp
 github.com/inconshreveable/mousetrap
 # github.com/mattn/go-runewidth v0.0.9
 github.com/mattn/go-runewidth
+# github.com/mitchellh/go-homedir v1.1.0
+## explicit
+github.com/mitchellh/go-homedir
 # github.com/olekukonko/tablewriter v0.0.5
 ## explicit
 github.com/olekukonko/tablewriter

@@ -14,6 +14,7 @@ type ISIN struct {
 	Name       string
 	AssetClass string
 	Nomination string
+	Source     string
 
 	Shares        float64
 	ValuePerShare float64
@@ -63,7 +64,7 @@ func (i *ISIN) ISINNomination() string {
 	return i.ID + ":" + i.Nomination
 }
 
-func (db *DB) AddOrUpdateISIN(isin string) error {
+func (db *DB) AddOrUpdateISIN(isin string, source string) error {
 	i, err := db.GetISIN(isin)
 	if err != nil {
 		if !errors.Is(err, storm.ErrNotFound) {
@@ -71,12 +72,9 @@ func (db *DB) AddOrUpdateISIN(isin string) error {
 		}
 
 		i = &ISIN{
-			ID: isin,
+			ID:     isin,
+			Source: source,
 		}
-	}
-
-	if err := db.DB().Save(i); err != nil {
-		return err
 	}
 
 	return db.UpdateFromHTTP(i)

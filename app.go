@@ -56,7 +56,7 @@ func (a *App) ShowCurrentState() error {
 
 	sort.Strings(tvs)
 
-	table.Append([]string{"", "", "", "", "", strings.Join(tvs, "\n")})
+	table.Append([]string{"Total", "", "", "", "", strings.Join(tvs, "\n")})
 	table.Render()
 
 	return nil

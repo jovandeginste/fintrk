@@ -19,13 +19,15 @@ func (a *App) RootCmd() *cobra.Command {
 }
 
 func (a *App) AddISINCmd() *cobra.Command {
-	return &cobra.Command{
+	source := ""
+
+	cmd := &cobra.Command{
 		Use:   "add-isin",
 		Short: "add ISIN code to start tracking",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			for _, i := range args {
-				if err := a.DB().AddOrUpdateISIN(i); err != nil {
+				if err := a.DB().AddOrUpdateISIN(i, source); err != nil {
 					return err
 				}
 			}
@@ -33,6 +35,10 @@ func (a *App) AddISINCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().StringVarP(&source, "source", "s", "FT", "source to fetch data from")
+
+	return cmd
 }
 
 func (a *App) ShowCmd() *cobra.Command {

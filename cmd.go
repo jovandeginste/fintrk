@@ -15,6 +15,7 @@ func (a *App) RootCmd() *cobra.Command {
 	cmd.AddCommand(a.UpdateSharesCmd())
 	cmd.AddCommand(a.ShowCmd())
 	cmd.AddCommand(a.ShowAtCmd())
+	cmd.AddCommand(a.ShowSinceCmd())
 	cmd.AddCommand(a.CreateTransactionCmd())
 	cmd.AddCommand(a.AddISINCmd())
 
@@ -66,6 +67,22 @@ func (a *App) ShowAtCmd() *cobra.Command {
 			}
 
 			return a.ShowStateAt(d)
+		},
+	}
+}
+
+func (a *App) ShowSinceCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "show-since",
+		Short: "show change of tracked funds since date",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			d, err := time.Parse("2006-01-02", args[0])
+			if err != nil {
+				return err
+			}
+
+			return a.ShowStateSince(d)
 		},
 	}
 }

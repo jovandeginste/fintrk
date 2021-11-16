@@ -72,13 +72,13 @@ func (t *Transaction) String() string {
 	)
 }
 
-func (t *Transaction) SetDate(d string) error {
-	if d == "" {
+func (t *Transaction) SetDate(date string) error {
+	if date == "" {
 		t.Date = time.Now()
 		return nil
 	}
 
-	parsed, err := time.Parse("2006-01-02", d)
+	parsed, err := time.Parse("2006-01-02", date)
 	if err != nil {
 		return err
 	}

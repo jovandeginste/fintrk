@@ -64,20 +64,20 @@ func (i *ISIN) ISINNomination() string {
 	return i.ID + ":" + i.Nomination
 }
 
-func (db *DB) AddOrUpdateISIN(isin string, source string) error {
-	i, err := db.GetISIN(isin)
+func (db *DB) AddOrUpdateISIN(isinID string, source string) error {
+	isin, err := db.GetISIN(isinID)
 	if err != nil {
 		if !errors.Is(err, storm.ErrNotFound) {
 			return err
 		}
 
-		i = &ISIN{
-			ID:     isin,
+		isin = &ISIN{
+			ID:     isinID,
 			Source: source,
 		}
 	}
 
-	return db.UpdateFromHTTP(i)
+	return db.UpdateFromHTTP(isin)
 }
 
 func (db *DB) GetAllISIN() ([]ISIN, error) {
@@ -88,15 +88,15 @@ func (db *DB) GetAllISIN() ([]ISIN, error) {
 	return isin, err
 }
 
-func (db *DB) UpdateShares(isin string) error {
-	i, err := db.GetISIN(isin)
+func (db *DB) UpdateShares(isinID string) error {
+	isin, err := db.GetISIN(isinID)
 	if err != nil {
 		return err
 	}
 
-	db.logger.Debugf("Calculating shares for ISIN: %s (%.2f)", i.ID, i.Shares)
+	db.logger.Debugf("Calculating shares for ISIN: %s (%.2f)", isin.ID, isin.Shares)
 
-	ts, err := db.GetTransactionsForISIN(isin)
+	transactions, err := db.GetTransactionsForISIN(isinID)
 	if err != nil {
 		if errors.Is(err, storm.ErrNotFound) {
 			return nil
@@ -107,17 +107,17 @@ func (db *DB) UpdateShares(isin string) error {
 
 	newValue := 0.0
 
-	for _, t := range ts {
+	for _, t := range transactions {
 		newValue += t.TotalShares
 	}
 
-	if i.Shares == newValue {
+	if isin.Shares == newValue {
 		return nil
 	}
 
-	db.logger.Infof("Amount of shares for '%s' changed from %.2f to %.2f", i.ID, i.Shares, newValue)
+	db.logger.Infof("Amount of shares for '%s' changed from %.2f to %.2f", isin.ID, isin.Shares, newValue)
 
-	i.Shares = newValue
+	isin.Shares = newValue
 
-	return db.DB().Save(i)
+	return db.DB().Save(isin)
 }

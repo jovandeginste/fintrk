@@ -10,17 +10,15 @@ const (
 	DataSourceInvesting = "investing"
 )
 
-var (
-	ErrUnknownSource = errors.New("unknown data source")
-)
+var ErrUnknownSource = errors.New("unknown data source")
 
-func (db *DB) UpdateFromHTTP(i *ISIN) error {
-	switch i.Source {
+func (db *DB) UpdateFromHTTP(isin *ISIN) error {
+	switch isin.Source {
 	case DataSourceFT:
-		return db.FTUpdateFromHTTP(i)
+		return db.FTUpdateFromHTTP(isin)
 	case DataSourceInvesting:
-		return db.InvestingUpdateFromHTTP(i)
+		return db.InvestingUpdateFromHTTP(isin)
 	default:
-		return fmt.Errorf("%w: '%s'", ErrUnknownSource, i.Source)
+		return fmt.Errorf("%w: '%s'", ErrUnknownSource, isin.Source)
 	}
 }

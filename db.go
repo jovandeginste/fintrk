@@ -50,14 +50,14 @@ func (db *DB) Close() {
 }
 
 func (db *DB) UpdateValuationsAll() error {
-	isin, err := db.GetAllISIN()
+	isins, err := db.GetAllISIN()
 	if err != nil {
 		return err
 	}
 
 	swg := sizedwaitgroup.New(8)
 
-	for n := range isin {
+	for isin := range isins {
 		swg.Add()
 
 		go func(i *ISIN) {
@@ -67,7 +67,7 @@ func (db *DB) UpdateValuationsAll() error {
 			if err := db.UpdateFromHTTP(i); err != nil {
 				db.logger.Errorf("Error updating ISIN '%s': %v", i.ID, err)
 			}
-		}(&isin[n])
+		}(&isins[isin])
 	}
 
 	swg.Wait()

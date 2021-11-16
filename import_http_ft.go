@@ -12,8 +12,6 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 )
 
-const SummaryURL = "https://markets.ft.com/data/funds/tearsheet/summary"
-
 type FTSeries struct {
 	Dates        []string          `json:"Dates"`
 	Status       int               `json:"Status"`
@@ -69,9 +67,7 @@ type FTSearch struct {
 	} `json:"data"`
 }
 
-var (
-	extractFTInfo = regexp.MustCompile(`.*<section class="mod-tearsheet-add-to-watchlist" data-mod-config="([^"]+)".*`)
-)
+var extractFTInfo = regexp.MustCompile(`.*<section class="mod-tearsheet-add-to-watchlist" data-mod-config="([^"]+)".*`)
 
 func (i *ISIN) BuildFTSeriesQuery(days int) FTSeriesQuery {
 	return FTSeriesQuery{
@@ -90,23 +86,23 @@ func (i *ISIN) BuildFTSeriesQuery(days int) FTSeriesQuery {
 	}
 }
 
-func (db *DB) FTUpdateFromHTTP(i *ISIN) error {
-	c := retryablehttp.NewClient()
-	c.Logger = db.logger
+func (db *DB) FTUpdateFromHTTP(isin *ISIN) error {
+	client := retryablehttp.NewClient()
+	client.Logger = db.logger
 
-	if err := db.FTUpdateXIDFromHTTP(i, c); err != nil {
+	if err := db.FTUpdateXIDFromHTTP(isin, client); err != nil {
 		return err
 	}
 
-	if err := db.FTUpdateMetaFromHTTP(i, c); err != nil {
+	if err := db.FTUpdateMetaFromHTTP(isin, client); err != nil {
 		return err
 	}
 
-	return db.FTUpdateValuationsFromHTTP(i, c)
+	return db.FTUpdateValuationsFromHTTP(isin, client)
 }
 
-func (db *DB) FTUpdateXIDFromHTTP(i *ISIN, c *retryablehttp.Client) error {
-	u, err := url.Parse("https://markets.ft.com/data/funds/tearsheet/charts?s=" + i.ISINNomination())
+func (db *DB) FTUpdateXIDFromHTTP(isin *ISIN, client *retryablehttp.Client) error {
+	u, err := url.Parse("https://markets.ft.com/data/funds/tearsheet/charts?s=" + isin.ISINNomination())
 	if err != nil {
 		return err
 	}
@@ -116,7 +112,7 @@ func (db *DB) FTUpdateXIDFromHTTP(i *ISIN, c *retryablehttp.Client) error {
 		return err
 	}
 
-	resp, err := c.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -141,13 +137,13 @@ func (db *DB) FTUpdateXIDFromHTTP(i *ISIN, c *retryablehttp.Client) error {
 		return err
 	}
 
-	i.XID = d.XID
+	isin.XID = d.XID
 
-	return db.DB().Save(i)
+	return db.DB().Save(isin)
 }
 
-func (db *DB) FTUpdateMetaFromHTTP(i *ISIN, c *retryablehttp.Client) error {
-	u, err := url.Parse("https://markets.ft.com/data/searchapi/searchsecurities?query=" + i.ISINNomination())
+func (db *DB) FTUpdateMetaFromHTTP(isin *ISIN, client *retryablehttp.Client) error {
+	u, err := url.Parse("https://markets.ft.com/data/searchapi/searchsecurities?query=" + isin.ISINNomination())
 	if err != nil {
 		return err
 	}
@@ -157,7 +153,7 @@ func (db *DB) FTUpdateMetaFromHTTP(i *ISIN, c *retryablehttp.Client) error {
 		return err
 	}
 
-	resp, err := c.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -182,34 +178,34 @@ func (db *DB) FTUpdateMetaFromHTTP(i *ISIN, c *retryablehttp.Client) error {
 	r0 := output.Data.Security[0]
 	symb := strings.SplitN(r0.Symbol, ":", 2)
 
-	i.Name = r0.Name
-	i.Nomination = symb[1]
-	i.AssetClass = r0.AssetClass
+	isin.Name = r0.Name
+	isin.Nomination = symb[1]
+	isin.AssetClass = r0.AssetClass
 
-	return db.DB().Save(i)
+	return db.DB().Save(isin)
 }
 
-func (db *DB) FTUpdateValuationsFromHTTP(i *ISIN, c *retryablehttp.Client) error {
-	u, err := url.Parse("https://markets.ft.com/data/chartapi/series")
+func (db *DB) FTUpdateValuationsFromHTTP(isin *ISIN, client *retryablehttp.Client) error {
+	ftURL, err := url.Parse("https://markets.ft.com/data/chartapi/series")
 	if err != nil {
 		return err
 	}
 
-	query := i.BuildFTSeriesQuery(1000)
+	query := isin.BuildFTSeriesQuery(1000)
 
 	j, err := json.Marshal(&query)
 	if err != nil {
 		return err
 	}
 
-	req, err := retryablehttp.NewRequest("POST", u.String(), j)
+	req, err := retryablehttp.NewRequest("POST", ftURL.String(), j)
 	if err != nil {
 		return err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -223,45 +219,45 @@ func (db *DB) FTUpdateValuationsFromHTTP(i *ISIN, c *retryablehttp.Client) error
 
 	var output FTSeries
 
-	if err := json.Unmarshal(body, &output); err != nil {
+	if err = json.Unmarshal(body, &output); err != nil {
 		return err
 	}
 
-	vals, err := ftToValuaions(i.ID, output)
+	vals, err := ftToValuaions(isin.ID, output)
 	if err != nil {
 		return err
 	}
 
-	return db.ImportValuations(i, vals)
+	return db.ImportValuations(isin, vals)
 }
 
-func ftToValuaions(isin string, s FTSeries) ([]*Valuation, error) {
-	result := make([]*Valuation, len(s.Dates))
+func ftToValuaions(isin string, series FTSeries) ([]*Valuation, error) {
+	result := make([]*Valuation, len(series.Dates))
 
-	if len(s.Elements) == 0 {
+	if len(series.Elements) == 0 {
 		return nil, nil
 	}
 
-	e := s.Elements[0]
+	e := series.Elements[0]
 
 	open := ftGetComponent(e, "Open")
 	high := ftGetComponent(e, "High")
 	low := ftGetComponent(e, "Low")
-	close := ftGetComponent(e, "Close")
+	closeValues := ftGetComponent(e, "Close")
 
-	for i, d := range s.Dates {
-		parsed, err := time.Parse("2006-01-02T15:04:05", d)
+	for seq, date := range series.Dates {
+		parsed, err := time.Parse("2006-01-02T15:04:05", date)
 		if err != nil {
 			return nil, err
 		}
 
-		result[i] = &Valuation{
+		result[seq] = &Valuation{
 			ISIN:  isin,
 			Date:  parsed,
-			Open:  open.Values[i],
-			High:  high.Values[i],
-			Low:   low.Values[i],
-			Close: close.Values[i],
+			Open:  open.Values[seq],
+			High:  high.Values[seq],
+			Low:   low.Values[seq],
+			Close: closeValues.Values[seq],
 		}
 	}
 

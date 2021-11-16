@@ -5,18 +5,23 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/olekukonko/tablewriter"
 )
 
+func (a *App) ShowStateAt(d time.Time) error {
+	return nil
+}
+
 func (a *App) ShowCurrentState() error {
-	isin, err := a.DB().GetAllISIN()
+	isins, err := a.DB().GetAllISIN()
 	if err != nil {
 		return err
 	}
 
-	sort.Slice(isin, func(i, j int) bool {
-		return isin[i].ID < isin[j].ID
+	sort.Slice(isins, func(i, j int) bool {
+		return isins[i].ID < isins[j].ID
 	})
 
 	table := tablewriter.NewWriter(os.Stdout)
@@ -25,21 +30,21 @@ func (a *App) ShowCurrentState() error {
 
 	totals := map[string]float64{}
 
-	for _, i := range isin {
-		vps, err := a.currency.Localize(i.Nomination, i.ValuePerShare)
+	for _, isin := range isins {
+		vps, err := a.currency.Localize(isin.Nomination, isin.ValuePerShare)
 		if err != nil {
 			a.Logger().Error(err)
 		}
 
-		ov, err := a.currency.Localize(i.Nomination, i.OwnedValue())
+		ownedValue, err := a.currency.Localize(isin.Nomination, isin.OwnedValue())
 		if err != nil {
 			a.Logger().Error(err)
 		}
 
-		totals[i.Nomination] += i.OwnedValue()
+		totals[isin.Nomination] += isin.OwnedValue()
 
 		table.Append([]string{
-			i.ID, i.Name, timeToDate(&i.UpdatedAt), vps, fmt.Sprintf("%.2f", i.Shares), ov,
+			isin.ID, isin.Name, timeToDate(&isin.UpdatedAt), vps, fmt.Sprintf("%.2f", isin.Shares), ownedValue,
 		})
 	}
 

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/url"
-	"regexp"
 	"strconv"
 	"time"
 
@@ -40,43 +39,39 @@ type InvestingSearchResponseQuote struct {
 
 type InvestingSeries struct {
 	Timestamps []int64   `json:"t"`
-	Closes     []float64 `json:"c"`
+	Closes     []float64 `json:"client"`
 	Opens      []float64 `json:"o"`
 	Highs      []float64 `json:"h"`
 	Lows       []float64 `json:"l"`
 	Status     string    `json:"s"`
 }
 
-var (
-	extractInvestingNomination = regexp.MustCompile(`<span class="bold pid-\d+-time">.* Valuta in <span class='bold'>([^<]+)</span>`)
-)
+func (db *DB) InvestingUpdateFromHTTP(isin *ISIN) error {
+	client := retryablehttp.NewClient()
+	client.Logger = db.logger
 
-func (db *DB) InvestingUpdateFromHTTP(i *ISIN) error {
-	c := retryablehttp.NewClient()
-	c.Logger = db.logger
-
-	if err := db.InvestingUpdateMetaFromHTTP(i, c); err != nil {
+	if err := db.InvestingUpdateMetaFromHTTP(isin, client); err != nil {
 		return err
 	}
 
-	if i.XID == "" {
+	if isin.XID == "" {
 		return nil
 	}
 
-	return db.InvestingUpdateValuationsFromHTTP(i, c)
+	return db.InvestingUpdateValuationsFromHTTP(isin, client)
 }
 
-func (db *DB) InvestingUpdateMetaFromHTTP(i *ISIN, c *retryablehttp.Client) error {
-	u, err := url.Parse("https://nl.investing.com/search/service/searchTopBar")
+func (db *DB) InvestingUpdateMetaFromHTTP(isin *ISIN, client *retryablehttp.Client) error {
+	invURL, err := url.Parse("https://nl.investing.com/search/service/searchTopBar")
 	if err != nil {
 		return err
 	}
 
 	b := url.Values{
-		"search_text": []string{i.ID},
+		"search_text": []string{isin.ID},
 	}
 
-	req, err := retryablehttp.NewRequest("POST", u.String(), []byte(b.Encode()))
+	req, err := retryablehttp.NewRequest("POST", invURL.String(), []byte(b.Encode()))
 	if err != nil {
 		return err
 	}
@@ -85,7 +80,7 @@ func (db *DB) InvestingUpdateMetaFromHTTP(i *ISIN, c *retryablehttp.Client) erro
 	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := c.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -109,42 +104,43 @@ func (db *DB) InvestingUpdateMetaFromHTTP(i *ISIN, c *retryablehttp.Client) erro
 
 	q := output.Quotes[0]
 
-	i.XID = strconv.Itoa(q.PairID)
-	i.Name = q.Name
-	i.AssetClass = q.PairType
+	isin.XID = strconv.Itoa(q.PairID)
+	isin.Name = q.Name
+	isin.AssetClass = q.PairType
 
-	return db.DB().Save(i)
+	return db.DB().Save(isin)
 }
 
-func (db *DB) InvestingUpdateValuationsFromHTTP(i *ISIN, c *retryablehttp.Client) error {
+func (db *DB) InvestingUpdateValuationsFromHTTP(isin *ISIN, client *retryablehttp.Client) error {
 	curTS := fmt.Sprintf("%d", time.Now().Unix())
 
-	u, err := url.Parse("https://tvc4.investing.com/1d34c13b0d6656b98005c7e69f95ccf7/" + curTS + "/36/16/16/history")
+	invURL, err := url.Parse("https://tvc4.investing.com/1d34c13b0d6656b98005c7e69f95ccf7/" + curTS + "/36/16/16/history")
 	if err != nil {
 		return err
 	}
 
-	q := url.Values{
-		"symbol": []string{i.XID},
+	query := url.Values{
+		"symbol": []string{isin.XID},
 		"from":   []string{"1000000000"},
 		"to":     []string{curTS},
 	}
 
-	u.RawQuery = q.Encode()
+	invURL.RawQuery = query.Encode()
 
-	req, err := retryablehttp.NewRequest("GET", u.String(), nil)
+	req, err := retryablehttp.NewRequest("GET", invURL.String(), nil)
 	if err != nil {
 		return err
 	}
 
 	req.Header.Set("User-Agent", "Me")
 
-	resp, err := c.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 
 	defer resp.Body.Close()
+
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
@@ -152,37 +148,37 @@ func (db *DB) InvestingUpdateValuationsFromHTTP(i *ISIN, c *retryablehttp.Client
 
 	var output InvestingSeries
 
-	if err := json.Unmarshal(body, &output); err != nil {
+	if err = json.Unmarshal(body, &output); err != nil {
 		return err
 	}
 
-	vals, err := investingToValuaions(i.ID, output)
+	vals, err := investingToValuaions(isin.ID, output)
 	if err != nil {
 		return err
 	}
 
 	db.logger.Debugf("got %d valuations", len(vals))
 
-	return db.ImportValuations(i, vals)
+	return db.ImportValuations(isin, vals)
 }
 
-func investingToValuaions(isin string, s InvestingSeries) ([]*Valuation, error) {
-	if s.Status != "ok" {
+func investingToValuaions(isin string, series InvestingSeries) ([]*Valuation, error) { //nolint:unparam
+	if series.Status != "ok" {
 		return nil, nil
 	}
 
-	result := make([]*Valuation, len(s.Timestamps))
+	result := make([]*Valuation, len(series.Timestamps))
 
-	for i, d := range s.Timestamps {
+	for seq, d := range series.Timestamps {
 		parsed := time.Unix(d, 0)
 
-		result[i] = &Valuation{
+		result[seq] = &Valuation{
 			ISIN:  isin,
 			Date:  parsed,
-			Open:  s.Opens[i],
-			High:  s.Highs[i],
-			Low:   s.Lows[i],
-			Close: s.Closes[i],
+			Open:  series.Opens[seq],
+			High:  series.Highs[seq],
+			Low:   series.Lows[seq],
+			Close: series.Closes[seq],
 		}
 	}
 

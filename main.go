@@ -39,24 +39,24 @@ func main() {
 	}
 
 	l := logrus.StandardLogger()
-	a := App{
+	app := App{
 		db:       NewDB(DBFile, l),
 		logger:   l,
 		currency: &Currency{},
 	}
 
-	if err := a.currency.Initialize(); err != nil {
-		a.logger.Fatal(err)
+	if err := app.currency.Initialize(); err != nil {
+		app.logger.Fatal(err)
 	}
 
-	if err := a.DB().Initialize(); err != nil {
-		a.logger.Fatalf("%v", err)
+	if err := app.DB().Initialize(); err != nil {
+		app.logger.Fatalf("%v", err)
 	}
 
-	defer a.DB().Close()
+	defer app.DB().Close()
 
-	cmd := a.RootCmd()
+	cmd := app.RootCmd()
 	if err := cmd.Execute(); err != nil {
-		a.logger.Fatal(err)
+		app.logger.Fatal(err)
 	}
 }

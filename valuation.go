@@ -50,6 +50,27 @@ func (db *DB) GetValuationAt(isin string, d time.Time) (*Valuation, error) {
 	return &v, nil
 }
 
+func (db *DB) GetSharesAt(isin string, d time.Time) (float64, error) {
+	var transactions []Transaction
+
+	query := db.DB().Select(
+		q.Eq("ISIN", isin),
+		q.Lte("Date", d),
+	).Reverse().OrderBy("Date")
+
+	if err := query.Find(&transactions); err != nil {
+		return 0, err
+	}
+
+	var v float64
+
+	for _, tx := range transactions {
+		v += tx.TotalShares
+	}
+
+	return v, nil
+}
+
 func (v *Valuation) UpdateID() {
 	v.ID = fmt.Sprintf("%s@%s", v.ISIN, timeToDate(&v.Date))
 }

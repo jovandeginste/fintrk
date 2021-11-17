@@ -16,7 +16,7 @@ var (
 	sinceStateHeaders = []string{"ISIN", "Name", "Nom", "Last update", "Previous value", "Current value", "Change"}
 )
 
-func (a *App) ShowStateSince(date time.Time) error {
+func (a *App) ShowStateSince(tableFormat string, date time.Time) error {
 	isins, err := a.DB().GetAllISIN()
 	if err != nil {
 		return err
@@ -57,12 +57,12 @@ func (a *App) ShowStateSince(date time.Time) error {
 		))
 	}
 
-	a.showSinceTable(entries, totals1, totals2)
+	a.showSinceTable(tableFormat, entries, totals1, totals2)
 
 	return nil
 }
 
-func (a *App) ShowStateAt(date time.Time) error {
+func (a *App) ShowStateAt(tableFormat string, date time.Time) error {
 	isins, err := a.DB().GetAllISIN()
 	if err != nil {
 		return err
@@ -100,12 +100,12 @@ func (a *App) ShowStateAt(date time.Time) error {
 		))
 	}
 
-	a.showSingleTable(entries, totals)
+	a.showSingleTable(tableFormat, entries, totals)
 
 	return nil
 }
 
-func (a *App) ShowCurrentState() error {
+func (a *App) ShowCurrentState(tableFormat string) error {
 	isins, err := a.DB().GetAllISIN()
 	if err != nil {
 		return err
@@ -127,7 +127,7 @@ func (a *App) ShowCurrentState() error {
 		))
 	}
 
-	a.showSingleTable(entries, totals)
+	a.showSingleTable(tableFormat, entries, totals)
 
 	return nil
 }
@@ -169,10 +169,10 @@ func (a *App) buildSingleTableEntry(isinID string, isinName string, date *time.T
 	}
 }
 
-func (a *App) showSingleTable(entries [][]string, totals map[string]float64) {
+func (a *App) showSingleTable(tableFormat string, entries [][]string, totals map[string]float64) {
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader(singeStateHeaders)
-	table.SetRowLine(true)
+	configureRenderer(table, tableFormat)
 
 	table.AppendBulk(entries)
 
@@ -188,10 +188,10 @@ func (a *App) showSingleTable(entries [][]string, totals map[string]float64) {
 	table.Render()
 }
 
-func (a *App) showSinceTable(entries [][]string, totals1, totals2 map[string]float64) {
+func (a *App) showSinceTable(tableFormat string, entries [][]string, totals1, totals2 map[string]float64) {
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader(sinceStateHeaders)
-	table.SetRowLine(true)
+	configureRenderer(table, tableFormat)
 
 	table.AppendBulk(entries)
 
@@ -218,4 +218,14 @@ func (a *App) showSinceTable(entries [][]string, totals1, totals2 map[string]flo
 	}
 
 	table.Render()
+}
+
+func configureRenderer(table *tablewriter.Table, tableFormat string) {
+	switch tableFormat {
+	case "markdown", "md":
+		table.SetBorders(tablewriter.Border{Left: true, Top: false, Right: true, Bottom: false})
+		table.SetCenterSeparator("|")
+	default:
+		table.SetRowLine(true)
+	}
 }

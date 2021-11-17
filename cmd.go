@@ -46,17 +46,25 @@ func (a *App) AddISINCmd() *cobra.Command {
 }
 
 func (a *App) ShowCmd() *cobra.Command {
-	return &cobra.Command{
+	var tableFormat string
+
+	cmd := &cobra.Command{
 		Use:   "show",
 		Short: "show current state of tracked funds",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return a.ShowCurrentState()
+			return a.ShowCurrentState(tableFormat)
 		},
 	}
+
+	cmd.Flags().StringVarP(&tableFormat, "format", "f", "ascii", "rendering format (ascii, markdown)")
+
+	return cmd
 }
 
 func (a *App) ShowAtCmd() *cobra.Command {
-	return &cobra.Command{
+	var tableFormat string
+
+	cmd := &cobra.Command{
 		Use:   "show-at",
 		Short: "show state of tracked funds at date",
 		Args:  cobra.ExactArgs(1),
@@ -66,13 +74,19 @@ func (a *App) ShowAtCmd() *cobra.Command {
 				return err
 			}
 
-			return a.ShowStateAt(d)
+			return a.ShowStateAt(tableFormat, d)
 		},
 	}
+
+	cmd.Flags().StringVarP(&tableFormat, "format", "f", "ascii", "rendering format (ascii, markdown)")
+
+	return cmd
 }
 
 func (a *App) ShowSinceCmd() *cobra.Command {
-	return &cobra.Command{
+	var tableFormat string
+
+	cmd := &cobra.Command{
 		Use:   "show-since",
 		Short: "show change of tracked funds since date",
 		Args:  cobra.ExactArgs(1),
@@ -82,9 +96,13 @@ func (a *App) ShowSinceCmd() *cobra.Command {
 				return err
 			}
 
-			return a.ShowStateSince(d)
+			return a.ShowStateSince(tableFormat, d)
 		},
 	}
+
+	cmd.Flags().StringVarP(&tableFormat, "format", "f", "ascii", "rendering format (ascii, markdown)")
+
+	return cmd
 }
 
 func (a *App) UpdateValuationsCmd() *cobra.Command {

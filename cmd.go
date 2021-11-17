@@ -3,13 +3,24 @@ package main
 import (
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
+func (a *App) EnableDebug(cmd *cobra.Command, args []string) {
+	if a.Debug {
+		a.logger.SetLevel(logrus.DebugLevel)
+		a.DB().logger.SetLevel(logrus.DebugLevel)
+	}
+}
+
 func (a *App) RootCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Short: "track your investments",
+		Short:            "track your investments",
+		PersistentPreRun: a.EnableDebug,
 	}
+
+	cmd.PersistentFlags().BoolVarP(&a.Debug, "debug", "d", false, "debug mode")
 
 	cmd.AddCommand(a.UpdateValuationsCmd())
 	cmd.AddCommand(a.UpdateSharesCmd())

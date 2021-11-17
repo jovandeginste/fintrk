@@ -9,6 +9,8 @@ import (
 )
 
 type App struct {
+	Debug bool
+
 	db       *DB
 	logger   *logrus.Logger
 	currency *Currency

@@ -2,12 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/url"
 	"strconv"
 	"time"
 
+	"github.com/asdine/storm/v3"
 	"github.com/hashicorp/go-retryablehttp"
 )
 
@@ -71,6 +73,8 @@ func (db *DB) InvestingUpdateMetaFromHTTP(isin *ISIN, client *retryablehttp.Clie
 		"search_text": []string{isin.ID},
 	}
 
+	db.logger.Debugf("Body: %s", b.Encode())
+
 	req, err := retryablehttp.NewRequest("POST", invURL.String(), []byte(b.Encode()))
 	if err != nil {
 		return err
@@ -112,7 +116,17 @@ func (db *DB) InvestingUpdateMetaFromHTTP(isin *ISIN, client *retryablehttp.Clie
 }
 
 func (db *DB) InvestingUpdateValuationsFromHTTP(isin *ISIN, client *retryablehttp.Client) error {
+	sinceTS := "1000000000"
 	curTS := fmt.Sprintf("%d", time.Now().Unix())
+
+	v, err := db.GetValuation(isin.ID)
+	if err != nil {
+		if !errors.Is(err, storm.ErrNotFound) {
+			return err
+		}
+	} else {
+		sinceTS = fmt.Sprintf("%d", v.Date.Unix())
+	}
 
 	invURL, err := url.Parse("https://tvc4.investing.com/1d34c13b0d6656b98005c7e69f95ccf7/" + curTS + "/36/16/16/history")
 	if err != nil {
@@ -121,7 +135,7 @@ func (db *DB) InvestingUpdateValuationsFromHTTP(isin *ISIN, client *retryablehtt
 
 	query := url.Values{
 		"symbol": []string{isin.XID},
-		"from":   []string{"1000000000"},
+		"from":   []string{sinceTS},
 		"to":     []string{curTS},
 	}
 

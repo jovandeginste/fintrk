@@ -24,13 +24,17 @@ func (v *Valuation) Value() float64 {
 func (db *DB) GetValuation(id string) (*Valuation, error) {
 	var i Valuation
 
+	db.logger.Debugf("Searching for ISIN valuation for '%s'", id)
+
 	query := db.DB().Select(
-		q.Eq("ID", id),
-	).Limit(1)
+		q.Eq("ISIN", id),
+	).Reverse().OrderBy("Date").Limit(1)
 
 	if err := query.First(&i); err != nil {
 		return nil, err
 	}
+
+	db.logger.Debugf("Valuation for '%s': %#v", id, i)
 
 	return &i, nil
 }

@@ -53,7 +53,7 @@ func (a *App) ShowStateSince(tableFormat string, date time.Time) error {
 		diff := isin.OwnedValue() - ownedValue
 
 		entries = append(entries, a.buildSinceTableEntry(
-			isin.ID, isin.Name, &valuation.Date, isin.Nomination, ownedValue, isin.OwnedValue(), diff,
+			isin.ID, isin.Name, &isin.UpdatedAt, isin.Nomination, ownedValue, isin.OwnedValue(), diff,
 		))
 	}
 

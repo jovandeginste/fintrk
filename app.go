@@ -225,6 +225,7 @@ func configureRenderer(table *tablewriter.Table, tableFormat string) {
 	case "markdown", "md":
 		table.SetBorders(tablewriter.Border{Left: true, Top: false, Right: true, Bottom: false})
 		table.SetCenterSeparator("|")
+		table.SetAutoWrapText(false)
 	default:
 		table.SetRowLine(true)
 	}

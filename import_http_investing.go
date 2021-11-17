@@ -39,7 +39,7 @@ type InvestingSearchResponseQuote struct {
 
 type InvestingSeries struct {
 	Timestamps []int64   `json:"t"`
-	Closes     []float64 `json:"client"`
+	Closes     []float64 `json:"c"`
 	Opens      []float64 `json:"o"`
 	Highs      []float64 `json:"h"`
 	Lows       []float64 `json:"l"`
